@@ -6,35 +6,85 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  package:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Validate version and scripts
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          test "$RELEASE_TAG" = "v$version"
+          for script in Scripts/*.sh; do sh -n "$script"; done
+          plutil -lint Resources/Info.plist Resources/LaunchAgent.plist
+          node --check Resources/Integrations/opencode-vibebreak.js
+          node --check Resources/Integrations/amp-vibebreak.js
 
       - name: Test
         run: make test
 
-      - name: Build application bundle
+      - name: Package Universal ad-hoc alpha
         run: ./Scripts/build-app.sh
 
-      - name: Archive and checksum
+      - name: Verify packages
         run: |
-          ditto -c -k --sequesterRsrc --keepParent dist/VibeBreak.app dist/VibeBreak.zip
+          lipo -verify_arch arm64 x86_64 dist/VibeBreak.app/Contents/MacOS/VibeBreak
+          lipo -verify_arch arm64 x86_64 dist/VibeBreak.app/Contents/MacOS/vibebreak-bridge-emit
+          codesign --verify --deep --strict --all-architectures dist/VibeBreak.app
           cd dist
-          shasum -a 256 VibeBreak.zip > SHA256SUMS
+          shasum -a 256 -c SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          if-no-files-found: error
+          path: |
+            dist/VibeBreak.zip
+            dist/VibeBreak.dmg
+            dist/SHA256SUMS
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-packages
+          path: dist
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME"
-          dist/VibeBreak.zip
-          dist/SHA256SUMS
-          --generate-notes
-          --verify-tag
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          (cd dist && sha256sum -c SHA256SUMS)
+          cat > release-notes.md <<'EOF'
+          Public alpha — Universal arm64 + x86_64, macOS 13+.
+
+          **Unsigned / ad-hoc signed only. Not Developer ID signed and NOT notarized.**
+          No Apple Developer certificate is required by this workflow.
+          Gatekeeper or company policy may block this alpha; do not bypass company policy.
+
+          Verify SHA256SUMS before installation. Mount the DMG and read INSTALL.txt.
+          In Finder use Go > Go to Folder > ~/Applications (create it if missing),
+          then drag VibeBreak.app there. The ZIP contains the same application.
+          Do not run from the DMG or install in /Applications: hooks expect
+          ~/Applications/VibeBreak.app/Contents/MacOS/vibebreak-bridge-emit.
+
+          Before uninstalling, remove integrations inside the app and quit it.
+          Deleting the app does not remove agent hooks, settings or logs.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            dist/VibeBreak.zip dist/VibeBreak.dmg dist/SHA256SUMS \
+            --title "VibeBreak $RELEASE_TAG — unsigned alpha" \
+            --prerelease --notes-file release-notes.md --verify-tag
