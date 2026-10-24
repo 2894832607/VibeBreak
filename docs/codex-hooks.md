@@ -32,8 +32,9 @@ Configuration selection enforces this mutual exclusion.
 ## Verify before use
 
 1. Put the application in `~/Applications/VibeBreak.app`.
-2. Install and enable Codex Hooks in the settings window; restart the relevant
-   Codex session if needed to reload hooks.
+2. Install and enable Codex Hooks in the settings window. Review and trust the
+   new command in Codex `/hooks`; restart the relevant session if needed to
+   reload hooks. “Installed” means the file exists, not that Codex has trusted it.
 3. Submit a short task and check that start and finish events appear in diagnostics.
 4. Submit a longer task, interrupt it, and check that the active task count returns
    to zero.
