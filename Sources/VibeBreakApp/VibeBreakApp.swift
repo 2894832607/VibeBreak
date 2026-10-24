@@ -176,16 +176,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.refreshMenu()
         }
 
-        sourceController.onHealthChange = { [weak self, weak model, weak automation] sourceID, health in
+        sourceController.onHealthChange = { [weak self, weak model] sourceID, health in
             model?.updateSourceHealth(sourceID: sourceID, health: health)
-            if case .failed = health {
-                automation?.reset()
-            } else if case .incompatible = health {
-                automation?.reset()
-            }
             self?.logger.write(
                 "source.health source=\(sourceID) value=\(Self.healthLogValue(health))"
             )
+            self?.refreshMenu()
+        }
+        sourceController.onStateInvalidated = { [weak self, weak automation] sourceID in
+            automation?.invalidateSource(sourceID)
+            self?.logger.write("source.state.invalidated source=\(sourceID)")
             self?.refreshMenu()
         }
         sourceController.onEvent = { [weak self, weak model, weak automation] event in

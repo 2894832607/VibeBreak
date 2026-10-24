@@ -46,6 +46,8 @@ public protocol AgentEventSource: AnyObject {
     var id: String { get }
     var onEvent: ((LifecycleEvent) -> Void)? { get set }
     var onHealthChange: ((SourceHealth) -> Void)? { get set }
+    /// Emitted only when previously observed task state is no longer valid.
+    var onStateInvalidated: (() -> Void)? { get set }
 
     func start()
     func stop()

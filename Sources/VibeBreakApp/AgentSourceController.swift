@@ -5,9 +5,10 @@ import VibeBreakCore
 final class AgentSourceController {
     var onEvent: ((LifecycleEvent) -> Void)?
     var onHealthChange: ((String, SourceHealth) -> Void)?
+    var onStateInvalidated: ((String) -> Void)?
 
     private let sources: [String: AgentEventSource]
-    private var enabledSourceIDs = Set<String>()
+    private var subscriptions: [String: UUID] = [:]
 
     init(sources: [AgentEventSource]) {
         var keyed: [String: AgentEventSource] = [:]
@@ -19,36 +20,50 @@ final class AgentSourceController {
 
     func applyEnabledSourceIDs(_ ids: [String]) {
         let nextEnabled = Set(ids)
+        let previousEnabled = Set(subscriptions.keys)
 
-        for removedID in enabledSourceIDs.subtracting(nextEnabled) {
+        for removedID in previousEnabled.subtracting(nextEnabled) {
+            subscriptions[removedID] = nil
             sources[removedID]?.stop()
+            onStateInvalidated?(removedID)
         }
 
-        for addedID in nextEnabled.subtracting(enabledSourceIDs) {
+        for addedID in nextEnabled.subtracting(previousEnabled) {
             guard let source = sources[addedID] else { continue }
-            bind(source)
+            let subscription = UUID()
+            subscriptions[addedID] = subscription
+            bind(source, subscription: subscription)
             source.start()
         }
-
-        enabledSourceIDs = nextEnabled
     }
 
     func stopAll() {
-        for source in sources.values {
-            source.stop()
-        }
-        enabledSourceIDs.removeAll()
+        applyEnabledSourceIDs([])
     }
 
-    private func bind(_ source: AgentEventSource) {
+    private func bind(_ source: AgentEventSource, subscription: UUID) {
         source.onHealthChange = { [weak self, sourceID = source.id] health in
             DispatchQueue.main.async {
-                self?.onHealthChange?(sourceID, health)
+                guard let self, self.subscriptions[sourceID] == subscription else {
+                    return
+                }
+                self.onHealthChange?(sourceID, health)
             }
         }
-        source.onEvent = { [weak self] event in
+        source.onEvent = { [weak self, sourceID = source.id] event in
             DispatchQueue.main.async {
-                self?.onEvent?(event)
+                guard let self, self.subscriptions[sourceID] == subscription else {
+                    return
+                }
+                self.onEvent?(event)
+            }
+        }
+        source.onStateInvalidated = { [weak self, sourceID = source.id] in
+            DispatchQueue.main.async {
+                guard let self, self.subscriptions[sourceID] == subscription else {
+                    return
+                }
+                self.onStateInvalidated?(sourceID)
             }
         }
     }

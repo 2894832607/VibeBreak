@@ -33,4 +33,8 @@ public struct TaskStateMachine: Sendable {
     public mutating func reset() {
         activeTasks.removeAll()
     }
+
+    public mutating func invalidateSource(_ sourceID: String) {
+        activeTasks = activeTasks.filter { $0.sourceID != sourceID }
+    }
 }

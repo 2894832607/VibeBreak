@@ -128,6 +128,145 @@ struct CodexSQLiteEventSourceTests {
         #expect(lock.withLock { didReportIncompatible })
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func interruptFinishesEveryStartedTaskInSameThread() async throws {
+        let url = temporaryDatabaseURL()
+        var writer: OpaquePointer?
+        try #require(sqlite3_open(url.path, &writer) == SQLITE_OK)
+        defer {
+            sqlite3_close(writer)
+            try? FileManager.default.removeItem(at: url)
+        }
+        try execute("""
+            CREATE TABLE logs (
+                id INTEGER PRIMARY KEY, target TEXT, thread_id TEXT,
+                feedback_log_body TEXT
+            );
+            """, on: writer)
+        let source = CodexSQLiteEventSource(databaseURL: url, pollInterval: 0.01)
+        defer { source.stop() }
+        let lock = NSLock()
+        var monitoring = false
+        var state = TaskStateMachine()
+        var events: [LifecycleEvent] = []
+        source.onHealthChange = { health in
+            lock.withLock { monitoring = health == .monitoring }
+        }
+        source.onEvent = { event in
+            lock.withLock {
+                state.apply(event)
+                events.append(event)
+            }
+        }
+        source.start()
+        try await waitUntil(timeout: 1) { lock.withLock { monitoring } }
+        try #require(lock.withLock { monitoring })
+        for id in ["one", "two"] {
+            try insert(
+                target: CodexLogParser.handlersTarget, threadID: "thread",
+                body: "Submission { id: \"\(id)\", op: UserInput }", on: writer
+            )
+        }
+        try insert(
+            target: CodexLogParser.sessionTarget, threadID: "thread",
+            body: "interrupt received: abort current task", on: writer
+        )
+        try await waitUntil(timeout: 1) {
+            lock.withLock { events.count >= 4 }
+        }
+        #expect(lock.withLock { state.activeCount } == 0)
+    }
+
+    @Test(.timeLimit(.minutes(1)), arguments: [false, true])
+    func temporaryDisconnectPreservesTasksAndCursorRewindInvalidates(
+        rewindOnReconnect: Bool
+    ) async throws {
+        let url = temporaryDatabaseURL()
+        var writer: OpaquePointer?
+        try #require(sqlite3_open(url.path, &writer) == SQLITE_OK)
+        sqlite3_busy_timeout(writer, 1000)
+        defer {
+            sqlite3_close(writer)
+            try? FileManager.default.removeItem(at: url)
+        }
+        try execute("""
+            PRAGMA journal_mode=WAL;
+            CREATE TABLE logs (
+                id INTEGER PRIMARY KEY, target TEXT, thread_id TEXT,
+                feedback_log_body TEXT
+            );
+            """, on: writer)
+        let source = CodexSQLiteEventSource(databaseURL: url, pollInterval: 0.01)
+        defer { source.stop() }
+        let lock = NSLock()
+        var health: SourceHealth = .stopped
+        var events: [LifecycleEvent] = []
+        var invalidations = 0
+        source.onHealthChange = { value in lock.withLock { health = value } }
+        source.onEvent = { event in lock.withLock { events.append(event) } }
+        source.onStateInvalidated = { lock.withLock { invalidations += 1 } }
+        source.start()
+        try await waitUntil(timeout: 1) { lock.withLock { health == .monitoring } }
+        try #require(lock.withLock { health == .monitoring })
+        try insert(
+            target: CodexLogParser.handlersTarget, threadID: "thread",
+            body: "Submission { id: \"one\", op: UserInput }", on: writer
+        )
+        try await waitUntil(timeout: 1) { lock.withLock { events.count == 1 } }
+        try #require(lock.withLock { events.count == 1 })
+        // Make polling fail without losing rows or lowering the cursor.
+        try execute("ALTER TABLE logs RENAME TO saved_logs;", on: writer)
+        try await waitUntil(timeout: 1) {
+            lock.withLock { if case .failed = health { return true }; return false }
+        }
+        try #require(lock.withLock { if case .failed = health { return true }; return false })
+        #expect(lock.withLock { invalidations } == 0)
+        try execute("ALTER TABLE saved_logs RENAME TO logs;", on: writer)
+        try await waitUntil(timeout: 4) { lock.withLock { health == .monitoring } }
+        try #require(lock.withLock { health == .monitoring })
+        try insert(
+            target: CodexLogParser.sessionTarget, threadID: "thread",
+            body: "interrupt received: abort current task", on: writer
+        )
+        try await waitUntil(timeout: 1) { lock.withLock { events.count == 2 } }
+        #expect(lock.withLock { events.last } == .finished(
+            AgentTask(sourceID: source.id, threadID: "thread", taskID: "one"),
+            reason: .interrupted
+        ))
+        try insert(
+            target: CodexLogParser.handlersTarget, threadID: "thread",
+            body: "Submission { id: \"two\", op: UserInput }", on: writer
+        )
+        try await waitUntil(timeout: 1) { lock.withLock { events.count == 3 } }
+        try #require(lock.withLock { events.count == 3 })
+        if rewindOnReconnect {
+            try execute("ALTER TABLE logs RENAME TO saved_logs;", on: writer)
+            try await waitUntil(timeout: 1) {
+                lock.withLock { if case .failed = health { return true }; return false }
+            }
+            try #require(lock.withLock { if case .failed = health { return true }; return false })
+            try execute("DELETE FROM saved_logs; ALTER TABLE saved_logs RENAME TO logs;", on: writer)
+        } else {
+            try execute("DELETE FROM logs;", on: writer)
+        }
+        try await waitUntil(timeout: 4) { lock.withLock { invalidations == 1 } }
+        #expect(lock.withLock { invalidations } == 1)
+        #expect(lock.withLock { events.count } == 3)
+        try insert(
+            target: CodexLogParser.sessionTarget, threadID: "thread",
+            body: "interrupt received: abort current task", on: writer
+        )
+        try insert(
+            target: CodexLogParser.handlersTarget, threadID: "new-thread",
+            body: "Submission { id: \"three\", op: UserInput }", on: writer
+        )
+        try await waitUntil(timeout: 1) { lock.withLock { events.count == 4 } }
+        #expect(lock.withLock { events.last } == .started(
+            AgentTask(sourceID: source.id, threadID: "new-thread", taskID: "three")
+        ))
+        #expect(lock.withLock { invalidations } == 1)
+    }
+
     private func temporaryDatabaseURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("VibeBreak-\(UUID().uuidString).sqlite")
@@ -168,7 +307,10 @@ struct CodexSQLiteEventSourceTests {
         sqlite3_bind_text(statement, 2, threadID, -1, transient)
         sqlite3_bind_text(statement, 3, body, -1, transient)
         guard sqlite3_step(statement) == SQLITE_DONE else {
-            throw NSError(domain: "CodexSQLiteEventSourceTests", code: 2)
+            throw NSError(
+                domain: "CodexSQLiteEventSourceTests", code: 2,
+                userInfo: [NSLocalizedDescriptionKey: String(cString: sqlite3_errmsg(database))]
+            )
         }
     }
 

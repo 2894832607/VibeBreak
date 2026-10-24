@@ -5,6 +5,7 @@ public final class CodexSQLiteEventSource: AgentEventSource {
     public let id = "codex-desktop"
     public var onEvent: ((LifecycleEvent) -> Void)?
     public var onHealthChange: ((SourceHealth) -> Void)?
+    public var onStateInvalidated: (() -> Void)?
 
     private let databaseURL: URL
     private let pollInterval: TimeInterval
@@ -14,7 +15,7 @@ public final class CodexSQLiteEventSource: AgentEventSource {
     private var timer: DispatchSourceTimer?
     private var cursor: Int64 = 0
     private var cursorInitialized = false
-    private var activeTaskByThread: [String: AgentTask] = [:]
+    private var activeTasksByThread: [String: Set<AgentTask>] = [:]
     private var health: SourceHealth = .stopped
     private var nextConnectionAttempt = Date.distantPast
 
@@ -52,7 +53,7 @@ public final class CodexSQLiteEventSource: AgentEventSource {
             timer?.cancel()
             timer = nil
             closeDatabase()
-            activeTaskByThread.removeAll()
+            activeTasksByThread.removeAll()
             cursor = 0
             cursorInitialized = false
             updateHealth(.stopped)
@@ -99,9 +100,7 @@ public final class CodexSQLiteEventSource: AgentEventSource {
             cursor = maximumID
             cursorInitialized = true
         } else if maximumID < cursor {
-            cursor = maximumID
-            activeTaskByThread.removeAll()
-            updateHealth(.failed("Codex 日志数据库已重建，活动状态已重置"))
+            invalidateState(at: maximumID)
         }
         updateHealth(.monitoring)
     }
@@ -161,6 +160,10 @@ public final class CodexSQLiteEventSource: AgentEventSource {
             connectionFailed("无法读取 Codex 日志上界")
             return
         }
+        if upperBound < cursor {
+            invalidateState(at: upperBound)
+            return
+        }
         guard upperBound > cursor else {
             return
         }
@@ -214,22 +217,31 @@ public final class CodexSQLiteEventSource: AgentEventSource {
         switch signal {
         case .started(let threadID, let taskID):
             let task = AgentTask(sourceID: id, threadID: threadID, taskID: taskID)
-            activeTaskByThread[threadID] = task
+            activeTasksByThread[threadID, default: []].insert(task)
             onEvent?(.started(task))
 
         case .completed(let threadID, let taskID):
             let task = AgentTask(sourceID: id, threadID: threadID, taskID: taskID)
-            if activeTaskByThread[threadID]?.taskID == taskID {
-                activeTaskByThread[threadID] = nil
+            activeTasksByThread[threadID]?.remove(task)
+            if activeTasksByThread[threadID]?.isEmpty == true {
+                activeTasksByThread[threadID] = nil
             }
             onEvent?(.finished(task, reason: .completed))
 
         case .interrupted(let threadID):
-            guard let task = activeTaskByThread.removeValue(forKey: threadID) else {
+            guard let tasks = activeTasksByThread.removeValue(forKey: threadID) else {
                 return
             }
-            onEvent?(.finished(task, reason: .interrupted))
+            for task in tasks.sorted(by: { $0.taskID < $1.taskID }) {
+                onEvent?(.finished(task, reason: .interrupted))
+            }
         }
+    }
+
+    private func invalidateState(at maximumID: Int64) {
+        cursor = maximumID
+        activeTasksByThread.removeAll()
+        onStateInvalidated?()
     }
 
     private func connectionFailed(_ message: String) {

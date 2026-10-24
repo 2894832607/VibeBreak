@@ -31,12 +31,15 @@ public final class FocusAutomation {
     }
 
     public func updateSettings(_ settings: AppSettings) {
-        let sourceSelectionChanged =
-            self.settings.enabledSourceIdentifiers
-                != settings.enabledSourceIdentifiers
+        let removedSources = Set(self.settings.enabledSourceIdentifiers)
+            .subtracting(settings.enabledSourceIdentifiers)
         self.settings = settings
-        if !settings.enabled || sourceSelectionChanged {
+        if !settings.enabled {
             reset()
+        } else {
+            for sourceID in removedSources {
+                invalidateSource(sourceID)
+            }
         }
     }
 
@@ -77,6 +80,17 @@ public final class FocusAutomation {
         ownsFocus = false
         previousApplicationBundleIdentifier = nil
         onActiveCountChange?(0)
+    }
+
+    public func invalidateSource(_ sourceID: String) {
+        let previousCount = stateMachine.activeCount
+        stateMachine.invalidateSource(sourceID)
+        guard previousCount != stateMachine.activeCount else { return }
+        if stateMachine.activeCount == 0 {
+            ownsFocus = false
+            previousApplicationBundleIdentifier = nil
+        }
+        onActiveCountChange?(stateMachine.activeCount)
     }
 
     private func openStartApplicationIfConfigured() {

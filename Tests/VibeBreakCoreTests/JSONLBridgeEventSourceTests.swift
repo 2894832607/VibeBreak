@@ -69,6 +69,7 @@ struct JSONLBridgeEventSourceTests {
             context.events == [.started(task)]
                 && context.healthValues.last == .monitoring
         }
+        #expect(context.invalidationCount == 0)
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -83,13 +84,9 @@ struct JSONLBridgeEventSourceTests {
         try FileHandle(forWritingTo: context.fileURL).truncate(atOffset: 0)
 
         try await context.waitUntil {
-            context.healthValues.contains {
-                if case .failed(let message) = $0 {
-                    return message.contains("截断")
-                }
-                return false
-            }
+            context.invalidationCount == 1
         }
+        #expect(context.healthValues.last == .monitoring)
     }
 }
 
@@ -101,6 +98,11 @@ private final class TestContext: @unchecked Sendable {
     private let lock = NSLock()
     private var storedEvents: [LifecycleEvent] = []
     private var storedHealthValues: [SourceHealth] = []
+    private var storedInvalidationCount = 0
+
+    var invalidationCount: Int {
+        lock.withLock { storedInvalidationCount }
+    }
 
     var events: [LifecycleEvent] {
         lock.withLock { storedEvents }
@@ -135,6 +137,11 @@ private final class TestContext: @unchecked Sendable {
         source.onHealthChange = { [weak self] health in
             self?.lock.withLock {
                 self?.storedHealthValues.append(health)
+            }
+        }
+        source.onStateInvalidated = { [weak self] in
+            self?.lock.withLock {
+                self?.storedInvalidationCount += 1
             }
         }
     }

@@ -44,4 +44,16 @@ struct TaskStateMachineTests {
         )
         #expect(state.activeCount == 1)
     }
+
+    @Test func invalidationOnlyRemovesMatchingSource() {
+        var state = TaskStateMachine()
+        let bridge = AgentTask(sourceID: "cursor", threadID: "thread-1", taskID: "task-1")
+        state.apply(.started(first))
+        state.apply(.started(bridge))
+
+        state.invalidateSource("codex")
+        #expect(state.activeTasks == [bridge])
+        state.invalidateSource("unknown")
+        #expect(state.activeTasks == [bridge])
+    }
 }

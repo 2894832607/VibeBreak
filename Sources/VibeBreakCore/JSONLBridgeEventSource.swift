@@ -4,6 +4,7 @@ public final class JSONLBridgeEventSource: AgentEventSource {
     public let id: String
     public var onEvent: ((LifecycleEvent) -> Void)?
     public var onHealthChange: ((SourceHealth) -> Void)?
+    public var onStateInvalidated: (() -> Void)?
 
     private let fileURL: URL
     private let pollInterval: TimeInterval
@@ -95,7 +96,8 @@ public final class JSONLBridgeEventSource: AgentEventSource {
         guard size >= offset else {
             offset = size
             pendingText = ""
-            updateHealth(.failed("Bridge 事件文件被截断，活动状态已重置"))
+            onStateInvalidated?()
+            updateHealth(.monitoring)
             return
         }
         guard size > offset else { return }
