@@ -3,6 +3,57 @@ import Testing
 @testable import VibeBreakCore
 
 struct HookEventMapperTests {
+    @Test(arguments: ["turn-a", "turn-b"])
+    func mapsCodexTurnBySessionAndTurnID(turnID: String) throws {
+        for (event, expected) in [
+            ("UserPromptSubmit", HookLifecycleSignal.started(
+                threadID: "codex-session", taskID: turnID
+            )),
+            ("Stop", .finished(
+                threadID: "codex-session", taskID: turnID, reason: .completed
+            )),
+            ("Interrupt", .finished(
+                threadID: "codex-session", taskID: turnID, reason: .interrupted
+            )),
+        ] {
+            let input = try payload(
+                """
+                {"hook_event_name":"\(event)","session_id":"codex-session","turn_id":"\(turnID)"}
+                """
+            )
+            #expect(
+                try HookEventMapper.signal(sourceID: "codex-hooks", payload: input)
+                    == expected
+            )
+        }
+    }
+
+    @Test(arguments: ["UserPromptSubmit", "Stop", "Interrupt"])
+    func rejectsCodexEventsWithoutPairingIDs(event: String) throws {
+        for (fields, missing) in [
+            (#""session_id":"session""#, "turn_id"),
+            (#""turn_id":"turn""#, "session_id"),
+            (#""session_id":"session","turn_id":"""#, "turn_id"),
+        ] {
+            let input = try payload(
+                "{\"hook_event_name\":\"\(event)\",\(fields)}"
+            )
+            #expect(throws: HookEventMappingError.missingField(missing)) {
+                try HookEventMapper.signal(sourceID: "codex-hooks", payload: input)
+            }
+        }
+    }
+
+    @Test func ignoresNonMainTurnCodexEvents() throws {
+        for event in ["SessionStart", "SessionEnd", "SubagentStop", "PreToolUse"] {
+            let input = try payload("{\"hook_event_name\":\"\(event)\"}")
+            #expect(
+                try HookEventMapper.signal(sourceID: "codex-hooks", payload: input)
+                    == nil
+            )
+        }
+    }
+
     @Test func mapsClaudeTurn() throws {
         let start = try payload(
             """

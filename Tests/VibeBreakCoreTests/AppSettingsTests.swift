@@ -3,6 +3,50 @@ import Testing
 @testable import VibeBreakCore
 
 struct AppSettingsTests {
+    @Test func codexHooksAreOptionalAndUseBridge() {
+        #expect(AgentSourceID(rawValue: "codex-hooks")?.usesBridge == true)
+        #expect(AppSettings.initial.enabledSourceIdentifiers == ["codex-desktop"])
+        #expect(!AppSettings.initial.sourceIsEnabled("codex-hooks"))
+    }
+
+    @Test func enablingEitherCodexSourceReplacesTheOther() {
+        var settings = AppSettings.initial
+        settings.setSource("claude-code", enabled: true)
+        settings.setSource("codex-hooks", enabled: true)
+        #expect(settings.enabledSourceIdentifiers == ["claude-code", "codex-hooks"])
+        settings.setSource("codex-desktop", enabled: true)
+        #expect(settings.enabledSourceIdentifiers == ["claude-code", "codex-desktop"])
+    }
+
+    @Test func conflictingCodexConfigurationKeepsSQLiteDefault() throws {
+        var settings = AppSettings(
+            enabled: true,
+            enabledSourceIdentifiers: ["codex-hooks", "codex-desktop", "cursor"],
+            startApplicationBundleIdentifier: "",
+            completionAction: .stay,
+            completionApplicationBundleIdentifier: ""
+        )
+        #expect(settings.enabledSourceIdentifiers == ["codex-desktop", "cursor"])
+        settings.enabledSourceIdentifiers = ["codex-desktop", "codex-hooks"]
+        #expect(settings.enabledSourceIdentifiers == ["codex-desktop"])
+
+        let decoded = try JSONDecoder().decode(
+            AppSettings.self,
+            from: Data(
+                """
+                {"enabledSourceIdentifiers":["codex-hooks","codex-desktop","cursor"]}
+                """.utf8
+            )
+        )
+        #expect(decoded.enabledSourceIdentifiers == ["codex-desktop", "cursor"])
+        settings.setSource("codex-hooks", enabled: true)
+        let roundTrip = try JSONDecoder().decode(
+            AppSettings.self,
+            from: JSONEncoder().encode(settings)
+        )
+        #expect(roundTrip.enabledSourceIdentifiers == ["codex-hooks"])
+    }
+
     @Test func decodesLegacyConfiguration() throws {
         let data = Data(
             """

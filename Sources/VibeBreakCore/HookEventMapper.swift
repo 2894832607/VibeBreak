@@ -3,6 +3,7 @@ import Foundation
 public struct HookEventPayload: Decodable, Equatable, Sendable {
     public let hookEventName: String
     public let sessionID: String?
+    public let turnID: String?
     public let conversationID: String?
     public let generationID: String?
     public let status: String?
@@ -10,6 +11,7 @@ public struct HookEventPayload: Decodable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case hookEventName = "hook_event_name"
         case sessionID = "session_id"
+        case turnID = "turn_id"
         case conversationID = "conversation_id"
         case generationID = "generation_id"
         case status
@@ -56,6 +58,27 @@ public enum HookEventMapper {
         }
 
         switch source {
+        case .codexHooks:
+            let reason: TaskCompletionReason?
+            switch payload.hookEventName {
+            case "UserPromptSubmit":
+                reason = nil
+            case "Stop":
+                // Experimental completion signal: another Stop hook can block
+                // and continue this turn. This payload cannot prove finality.
+                reason = .completed
+            case "Interrupt":
+                reason = .interrupted
+            default:
+                return nil
+            }
+            let threadID = try required(payload.sessionID, field: "session_id")
+            let taskID = try required(payload.turnID, field: "turn_id")
+            if let reason {
+                return .finished(threadID: threadID, taskID: taskID, reason: reason)
+            }
+            return .started(threadID: threadID, taskID: taskID)
+
         case .claudeCode:
             return try mapSessionHook(
                 payload,

@@ -19,6 +19,12 @@ struct AgentSourceDescriptor: Identifiable, Equatable {
                 dataURL: codexDatabaseURL
             ),
             AgentSourceDescriptor(
+                id: AgentSourceID.codexHooks.rawValue,
+                name: "Codex Hooks（实验性）",
+                detail: "实验性，手动启用并在 Codex /hooks 中信任；UserPromptSubmit / Stop / Interrupt；Stop 可被其他 hook 阻止并续跑，不保证最终完成；与 SQLite 来源互斥",
+                dataURL: bridgeEventURL
+            ),
+            AgentSourceDescriptor(
                 id: AgentSourceID.claudeCode.rawValue,
                 name: "Claude Code",
                 detail: "官方 hooks：UserPromptSubmit / Stop",

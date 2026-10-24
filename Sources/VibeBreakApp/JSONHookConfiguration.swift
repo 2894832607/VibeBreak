@@ -146,6 +146,11 @@ struct JSONHookConfiguration {
             withJSONObject: object,
             options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
+        let backupURL = url.appendingPathExtension("vibebreak-backup")
+        if fileManager.fileExists(atPath: url.path),
+           !fileManager.fileExists(atPath: backupURL.path) {
+            try fileManager.copyItem(at: url, to: backupURL)
+        }
         try data.write(to: url, options: .atomic)
     }
 

@@ -2,6 +2,7 @@ import Foundation
 
 public enum AgentSourceID: String, CaseIterable, Codable, Sendable {
     case codexDesktop = "codex-desktop"
+    case codexHooks = "codex-hooks"
     case claudeCode = "claude-code"
     case cursor
     case geminiCLI = "gemini-cli"
@@ -25,7 +26,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     public var schemaVersion: Int
     public var enabled: Bool
-    public var enabledSourceIdentifiers: [String]
+    public var enabledSourceIdentifiers: [String] {
+        didSet {
+            enabledSourceIdentifiers = Self.normalizedSourceIdentifiers(
+                enabledSourceIdentifiers
+            )
+        }
+    }
     public var startApplicationBundleIdentifier: String
     public var completionAction: CompletionAction
     public var completionApplicationBundleIdentifier: String
@@ -74,6 +81,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public mutating func setSource(_ sourceID: String, enabled: Bool) {
         var identifiers = enabledSourceIdentifiers
         if enabled {
+            if sourceID == AgentSourceID.codexHooks.rawValue {
+                identifiers.removeAll { $0 == AgentSourceID.codexDesktop.rawValue }
+            } else if sourceID == AgentSourceID.codexDesktop.rawValue {
+                identifiers.removeAll { $0 == AgentSourceID.codexHooks.rawValue }
+            }
             identifiers.append(sourceID)
         } else {
             identifiers.removeAll { $0 == sourceID }
@@ -153,8 +165,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
         _ identifiers: [String]
     ) -> [String] {
         var seen = Set<String>()
+        // Conflicting persisted/direct configuration keeps the stable SQLite source.
+        // Explicit opt-in through setSource replaces it with hooks instead.
+        let hasSQLite = identifiers.contains(AgentSourceID.codexDesktop.rawValue)
         return identifiers.filter { identifier in
             guard !identifier.isEmpty, !seen.contains(identifier) else {
+                return false
+            }
+            if hasSQLite && identifier == AgentSourceID.codexHooks.rawValue {
                 return false
             }
             seen.insert(identifier)

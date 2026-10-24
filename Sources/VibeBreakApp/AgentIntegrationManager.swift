@@ -51,16 +51,24 @@ final class AgentIntegrationManager {
     private let fileManager: FileManager
     private let jsonHooks: JSONHookConfiguration
     private let homeURL: URL
+    private let codexHooksURL: URL
     private let resourceURL: URL?
 
     init(
         fileManager: FileManager = .default,
         homeURL: URL? = nil,
+        codexHooksURL: URL? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
         resourceURL: URL? = Bundle.main.resourceURL
     ) {
         self.fileManager = fileManager
         jsonHooks = JSONHookConfiguration(fileManager: fileManager)
         self.homeURL = homeURL ?? fileManager.homeDirectoryForCurrentUser
+        let codexHome = environment["CODEX_HOME"].flatMap {
+            $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true)
+        } ?? self.homeURL.appendingPathComponent(".codex", isDirectory: true)
+        self.codexHooksURL = codexHooksURL
+            ?? codexHome.appendingPathComponent("hooks.json")
         self.resourceURL = resourceURL
     }
 
@@ -73,7 +81,7 @@ final class AgentIntegrationManager {
             return .builtIn
         case .trae:
             return .manual
-        case .claudeCode, .cursor, .geminiCLI:
+        case .codexHooks, .claudeCode, .cursor, .geminiCLI:
             guard let spec = hookSpec(for: source) else { return .notInstalled }
             return jsonHooks.containsCommand(
                 at: spec.url,
@@ -183,6 +191,13 @@ final class AgentIntegrationManager {
 
     private func hookSpec(for source: AgentSourceID) -> HookSpec? {
         switch source {
+        case .codexHooks:
+            return HookSpec(
+                source: source,
+                url: codexHooksURL,
+                events: ["UserPromptSubmit", "Stop", "Interrupt"],
+                layout: .grouped(timeout: 3)
+            )
         case .claudeCode:
             return HookSpec(
                 source: source,
@@ -219,7 +234,7 @@ final class AgentIntegrationManager {
             return homeURL.appendingPathComponent(
                 ".config/amp/plugins/vibebreak.js"
             )
-        case .codexDesktop, .claudeCode, .cursor, .geminiCLI, .trae:
+        case .codexDesktop, .codexHooks, .claudeCode, .cursor, .geminiCLI, .trae:
             return homeURL
         }
     }
@@ -231,7 +246,7 @@ final class AgentIntegrationManager {
             filename = "opencode-vibebreak.js"
         case .amp:
             filename = "amp-vibebreak.js"
-        case .codexDesktop, .claudeCode, .cursor, .geminiCLI, .trae:
+        case .codexDesktop, .codexHooks, .claudeCode, .cursor, .geminiCLI, .trae:
             return nil
         }
         return resourceURL?
