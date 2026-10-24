@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-17T01:15:00+08:00",
+  "title": "Design System: VibeBreak",
+  "extensions": {
+    "colorMeta": {},
+    "typographyMeta": {
+      "body": {
+        "displayName": "macOS System Body",
+        "purpose": "All operational labels and values."
+      },
+      "label": {
+        "displayName": "macOS System Label",
+        "purpose": "Controls, tabs, and section labels."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "The Native Relay Panel",
+    "overview": "VibeBreak behaves like a small part of macOS rather than a branded dashboard. State, configuration, testing, and recovery remain visible without decorative content.",
+    "keyCharacteristics": [
+      "Native controls and familiar macOS terminology.",
+      "Restrained density with one clear task per section.",
+      "Semantic status communicated by text and color together.",
+      "No custom chrome, illustration, or marketing surface inside the app."
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Color Rule",
+        "body": "Never replace system semantic colors with fixed values.",
+        "section": "colors"
+      },
+      {
+        "name": "The Utility Type Rule",
+        "body": "Do not introduce display typography or decorative monospace.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "A control receives depth only from its standard macOS state.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use standard SwiftUI and AppKit controls before creating a custom one.",
+      "Do keep start and completion choices visible on the same settings tab.",
+      "Do expose source failures and incompatible schemas without guessing.",
+      "Do pair every semantic color with text or an icon label.",
+      "Do test long app names and missing applications."
+    ],
+    "donts": [
+      "Don't turn settings sections into nested custom cards.",
+      "Don't add productivity scores, engagement metrics, or decorative charts.",
+      "Don't use hidden keyword fallbacks for agent lifecycle detection.",
+      "Don't disable native focus, contrast, or keyboard behavior for styling.",
+      "Don't claim a source is connected unless its schema gate has passed."
+    ]
+  }
+}

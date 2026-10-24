@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Test
+        run: make test
+
+      - name: Build application bundle
+        run: ./Scripts/build-app.sh
+
+      - name: Archive and checksum
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/VibeBreak.app dist/VibeBreak.zip
+          cd dist
+          shasum -a 256 VibeBreak.zip > SHA256SUMS
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          dist/VibeBreak.zip
+          dist/SHA256SUMS
+          --generate-notes
+          --verify-tag
