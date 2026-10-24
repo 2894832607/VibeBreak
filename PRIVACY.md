@@ -35,6 +35,15 @@ VibeBreak stores:
 When the user explicitly selects **Install Integration**, VibeBreak adds only
 its own hook entries to supported agent settings or installs a marked local
 plugin file. Existing unrelated settings and hooks are preserved.
+The original JSON hook configuration is backed up once before the first
+managed modification. That backup may include unrelated settings from the
+original file; it stays alongside that file and is never uploaded.
+
+Experimental Codex Hooks read stdin JSON, including lifecycle identity fields.
+Only `session_id` and `turn_id` are needed for task pairing; prompt and response
+fields are not saved. Temporary bridge task state uses hashed filenames and
+owner-only file permissions. Changing `VIBEBREAK_BRIDGE_FILE` also moves task
+state beside the selected bridge file.
 
 The diagnostic log rotates at approximately 1 MB and keeps one archive. Task
 identifiers are truncated. Prompt and response content are not logged.

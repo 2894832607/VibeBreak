@@ -49,8 +49,10 @@ so one focus policy can work across multiple agents as adapters are added.
   that was frontmost before the first active task, or stay in the current one.
 - Normal completion and user interruption are explicit lifecycle events; no
   inactivity timeout is used.
-- Codex Desktop currently exposes no supported public lifecycle API. Its adapter
-  reads the local WAL-mode log database through a read-only SQLite connection.
+- The default Codex Desktop adapter reads private local WAL-mode logs.
+  An opt-in experimental Codex Hooks source uses the official contract.
+  Other Stop hooks can request continuation, so it cannot guarantee final
+  settlement and does not replace the default adapter without validation.
 - Agents without a stable local lifecycle API must integrate through explicit
   Agent Bridge events rather than private log guessing.
 - Private schema compatibility must be checked before monitoring. An unknown

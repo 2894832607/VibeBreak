@@ -2,7 +2,37 @@
 
 All notable changes to VibeBreak are documented here.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-25
+
+### Added
+
+- Opt-in experimental Codex Hooks source with session/turn identity and
+  mutually exclusive Codex source selection.
+- Universal macOS builds for Apple Silicon and Intel, with downloadable
+  application archives and disk images.
+- Original hook configuration backup before managed integration changes.
+- Bridge executable regression tests for identity collisions, file isolation,
+  invalid input, and permissions.
+
+### Fixed
+
+- Source failures no longer erase all concurrent source task state.
+- Explicit source invalidation clears only the affected source without
+  triggering a false completion action.
+- Disabled/restarted sources cannot forward stale queued callbacks.
+- Codex database row-sequence rollback is detected while polling.
+- Codex interruption handles overlapping task identities in one thread.
+- Bridge state filenames use collision-resistant identities, and custom
+  bridge paths keep task state beside the selected event file.
+
+### Release notes
+
+- Alpha builds remain ad-hoc signed and are not Apple-notarized.
+- Official Codex Hooks are experimental: another Stop hook can request
+  continuation after VibeBreak has received its callback.
+- Existing tasks are not replayed at application startup.
+
+## [0.1.0] - 2026-08-23
 
 ### Added
 

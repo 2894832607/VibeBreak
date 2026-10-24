@@ -90,6 +90,22 @@ completion action runs only when the final active task settles.
 - Unsupported agent lifecycle source: use the bridge contract; do not infer task
   boundaries from private UI or log phrases.
 
+Health and state invalidation are separate signals. Temporary I/O errors or a
+malformed record do not erase tasks. An explicit `onStateInvalidated` callback
+(sequence rollback, bridge truncation, or source removal) clears only that
+source's tasks without synthesizing completion events. Other sources remain
+active. If no valid tasks remain, focus ownership is abandoned rather than
+performing a false completion action.
+
+App orchestration serializes callbacks on the main queue and checks a
+subscription identity before forwarding them. Callbacks queued by a disabled
+or earlier subscription cannot enter the current automation.
+
+Startup tails new records rather than replaying old tasks. Temporary SQLite
+reconnections retain the cursor; an application restart does not restore
+previous active state. Codex Hooks is opt-in and mutually exclusive with
+the Desktop source; see [its experimental contract](codex-hooks.md).
+
 ## Persistence
 
 The settings file is the single source of truth for behavior, including enabled
