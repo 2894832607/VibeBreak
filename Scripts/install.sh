@@ -36,7 +36,9 @@ source_app=$(/bin/sh "$project_root/Scripts/build-app.sh")
     || fail "Build produced an unexpected bundle identity."
 /usr/bin/codesign --verify --deep --strict --all-architectures "$source_app"
 for executable in VibeBreak vibebreak-bridge-emit; do
-    /usr/bin/lipo -verify_arch arm64 x86_64 "$source_app/Contents/MacOS/$executable"
+    for arch in arm64 x86_64; do
+        /usr/bin/lipo "$source_app/Contents/MacOS/$executable" -verify_arch "$arch"
+    done
 done
 
 /bin/mkdir -p "$HOME/Applications" "$HOME/Library/LaunchAgents"

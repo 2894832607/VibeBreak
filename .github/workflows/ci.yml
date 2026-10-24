@@ -38,8 +38,11 @@ jobs:
           test -x dist/VibeBreak.app/Contents/MacOS/vibebreak-bridge-emit
           test -f dist/VibeBreak.app/Contents/Resources/Integrations/opencode-vibebreak.js
           test -f dist/VibeBreak.app/Contents/Resources/Integrations/amp-vibebreak.js
-          lipo -verify_arch arm64 x86_64 dist/VibeBreak.app/Contents/MacOS/VibeBreak
-          lipo -verify_arch arm64 x86_64 dist/VibeBreak.app/Contents/MacOS/vibebreak-bridge-emit
+          for executable in VibeBreak vibebreak-bridge-emit; do
+            for arch in arm64 x86_64; do
+              lipo "dist/VibeBreak.app/Contents/MacOS/$executable" -verify_arch "$arch"
+            done
+          done
           codesign --verify --deep --strict --all-architectures dist/VibeBreak.app
           cd dist
           shasum -a 256 -c SHA256SUMS

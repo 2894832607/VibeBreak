@@ -30,9 +30,11 @@ app_bundle="$staging/VibeBreak.app"
     "$app_bundle/Contents/Resources/Integrations"
 
 /usr/bin/plutil -lint "$app_bundle/Contents/Info.plist" >/dev/null
-for executable in VibeBreak vibebreak-bridge-emit; do
+for executable in vibebreak-bridge-emit VibeBreak; do
     binary="$app_bundle/Contents/MacOS/$executable"
-    /usr/bin/lipo -verify_arch arm64 x86_64 "$binary"
+    for arch in arm64 x86_64; do
+        /usr/bin/lipo "$binary" -verify_arch "$arch"
+    done
     /usr/bin/codesign --force --sign - "$binary" >&2
 done
 /usr/bin/codesign --force --sign - "$app_bundle" >&2
