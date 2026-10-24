@@ -133,11 +133,13 @@ struct CodexSQLiteEventSourceTests {
         let url = temporaryDatabaseURL()
         var writer: OpaquePointer?
         try #require(sqlite3_open(url.path, &writer) == SQLITE_OK)
+        sqlite3_busy_timeout(writer, 1000)
         defer {
             sqlite3_close(writer)
             try? FileManager.default.removeItem(at: url)
         }
         try execute("""
+            PRAGMA journal_mode=WAL;
             CREATE TABLE logs (
                 id INTEGER PRIMARY KEY, target TEXT, thread_id TEXT,
                 feedback_log_body TEXT

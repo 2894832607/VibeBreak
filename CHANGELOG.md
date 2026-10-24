@@ -2,6 +2,14 @@
 
 All notable changes to VibeBreak are documented here.
 
+## [0.2.1] - 2026-10-25
+
+### Fixed
+
+- SQLite interruption regression fixture now uses WAL mode, matching the
+  production source contract and avoiding rollback-journal I/O failures on CI.
+- First downloadable alpha; the `v0.2.0` tag did not pass CI and was not released.
+
 ## [0.2.0] - 2026-10-25
 
 ### Added

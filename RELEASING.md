@@ -1,4 +1,4 @@
-# Releasing VibeBreak 0.2.0 public alpha
+# Releasing VibeBreak public alpha
 
 ## Release contract
 
@@ -7,7 +7,8 @@
 - **Unsigned alpha in the distribution-trust sense: ad-hoc signed only,
   NOT Developer ID signed, NOT notarized.** No certificate, Apple account
   or notarization secret is required by these scripts or workflows.
-- Bundle ID: `app.vibebreak.VibeBreak`; version: `0.2.0`; build: `2`.
+- Bundle ID: `app.vibebreak.VibeBreak`; release version and build come from
+  `Resources/Info.plist`, the single source of truth.
 - Install at **`~/Applications/VibeBreak.app`**, not `/Applications`.
   Generated hooks use
   `"$HOME/Applications/VibeBreak.app/Contents/MacOS/vibebreak-bridge-emit"`.
@@ -98,7 +99,8 @@ can be removed in Finder after the same integration-removal step.
 ## GitHub workflow (maintainer action only)
 
 1. Update changelog and `Resources/Info.plist` together. The release tag must
-   match `v<CFBundleShortVersionString>` exactly (first alpha: `v0.2.0`).
+   match `v<CFBundleShortVersionString>` exactly. A failed tag is not rewritten;
+   fix the problem and publish a new patch version instead.
 2. Run local checks above and review Intel + Apple Silicon smoke-test results.
 3. Only when explicitly ready to publish, create and push the annotated tag.
    Editing workflow files alone does not create a release.

@@ -13,7 +13,7 @@ Amp, and any tool that implements its local Agent Bridge contract. All
 processing remains on the Mac; VibeBreak does not send telemetry or store
 prompt content.
 
-> Status: 0.2.0 alpha. The default Codex Desktop adapter reads private local
+> Status: 0.2.1 alpha. The default Codex Desktop adapter reads private local
 > logs. An optional experimental Codex Hooks source uses the official lifecycle
 > hook contract; verify it with your installed Codex version before relying on
 > it. Never enable both Codex sources for the same tasks.

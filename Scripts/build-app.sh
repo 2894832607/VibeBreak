@@ -46,7 +46,7 @@ dmg_root="$staging/dmg"
 /bin/mkdir "$dmg_root"
 /usr/bin/ditto "$app_bundle" "$dmg_root/VibeBreak.app"
 /bin/cat > "$dmg_root/INSTALL.txt" <<'EOF'
-VibeBreak 0.2.0 — public alpha / Universal (Apple Silicon + Intel)
+VibeBreak — public alpha / Universal (Apple Silicon + Intel)
 
 INSTALL (no administrator privileges):
 1. Quit VibeBreak before replacing an existing copy.

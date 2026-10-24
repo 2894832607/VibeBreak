@@ -12,7 +12,7 @@ VibeBreak 支持 Codex Desktop、Claude Code、Cursor、Gemini CLI、OpenCode、
 Amp，以及任何实现本地 Agent Bridge 契约的工具。检测、状态管理和应用切换
 全部在本机完成，不上传遥测，也不保存提示词内容。
 
-> 当前为 0.2.0 Alpha。默认 Codex Desktop 来源仍读取私有日志；另提供基于
+> 当前为 0.2.1 Alpha。默认 Codex Desktop 来源仍读取私有日志；另提供基于
 > 官方契约的实验性 Codex Hooks 接入。请先验证你的 Codex 版本，不要同时
 > 为同一批任务启用两个 Codex 来源。其他 Stop Hook 可能要求续跑，因此
 > Stop 回调不一定意味着任务最终结束。
