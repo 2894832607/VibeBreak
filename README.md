@@ -13,9 +13,10 @@ Amp, and any tool that implements its local Agent Bridge contract. All
 processing remains on the Mac; VibeBreak does not send telemetry or store
 prompt content.
 
-> Status: early alpha. Codex Desktop does not currently expose a supported
-> lifecycle API, so the adapter is intentionally isolated and fails closed when
-> its local log schema is incompatible.
+> Status: 0.2.0 alpha. The default Codex Desktop adapter reads private local
+> logs. An optional experimental Codex Hooks source uses the official lifecycle
+> hook contract; verify it with your installed Codex version before relying on
+> it. Never enable both Codex sources for the same tasks.
 
 ## Features
 
@@ -25,6 +26,9 @@ prompt content.
 - Explicit completion and interruption events; no inactivity timeout.
 - Concurrent-task state prevents an early return while another task is active.
 - Read-only WAL-mode access to the Codex Desktop log database.
+- Optional Codex Hooks integration with stable session/turn identifiers.
+- Source-specific state invalidation; a temporary source error does not erase
+  tasks belonging to other sources.
 - One-click local integration for Claude Code, Cursor, Gemini CLI, OpenCode,
   and Amp.
 - JSONL Agent Bridge for Trae and future explicit sources.
@@ -46,6 +50,17 @@ is used in CI and remains the recommended release environment.
 
 ## Install
 
+Download the Universal (Apple Silicon + Intel) application from this
+repository's GitHub Releases. Extract the ZIP or mount the DMG, copy
+`VibeBreak.app` to `~/Applications`, then open it. Create that directory if
+needed. Manual installation does not register a login item.
+
+Release builds are ad-hoc signed, not Apple-notarized. macOS may block a
+downloaded build; use Privacy & Security → Open Anyway only after verifying
+the release checksums and trusting its source. Do not disable Gatekeeper.
+
+To build and install from source with a login LaunchAgent:
+
 ```bash
 cd codex-vibe-break
 make install
@@ -61,6 +76,9 @@ It also installs a user LaunchAgent so the menu bar app starts at login. The
 settings window opens after installation.
 
 To uninstall the app while preserving settings and logs:
+
+First remove managed integrations in VibeBreak settings; otherwise agent
+hooks will still refer to the removed executable.
 
 ```bash
 make uninstall
@@ -151,6 +169,10 @@ the log body containing user input. See [PRIVACY.md](PRIVACY.md).
 ## Known Limitations
 
 - Native private-log parsing is only implemented for Codex Desktop.
+- Codex Hooks is experimental: another `Stop` hook may request continuation,
+  so a `Stop` callback is not an unconditional final-settlement signal.
+- Monitoring starts with new events. Tasks already running before VibeBreak
+  starts are not recovered or replayed.
 - Trae requires an external writer for the Agent Bridge contract.
 - Codex log fields are private implementation details and may change.
 - App switching uses `/usr/bin/open -b` because direct activation from a

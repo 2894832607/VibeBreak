@@ -7,6 +7,7 @@ inactivity.
 | Agent | Integration | Start | Settle | Setup |
 | --- | --- | --- | --- | --- |
 | Codex Desktop | Read-only SQLite adapter | Verified `UserInput` record | Verified completion or interrupt record | Built in |
+| Codex Hooks | Official command hooks (experimental) | `UserPromptSubmit` | `Stop` / `Interrupt` | Opt-in; see caveat below |
 | Claude Code | Command hooks | `UserPromptSubmit` | `Stop` / `StopFailure` | One click |
 | Cursor | Command hooks | `beforeSubmitPrompt` | `stop` | One click |
 | Gemini CLI | Command hooks | `BeforeAgent` | `AfterAgent` | One click |
@@ -16,6 +17,11 @@ inactivity.
 
 ## Support Levels
 
+These contracts are implemented and tested with fixtures, not a claim that
+every current upstream release has passed end-to-end testing. Codex Hooks is
+experimental because other `Stop` hooks can request continuation. Select it
+instead of, never alongside, Codex Desktop for the same tasks.
+
 - **Built in:** VibeBreak owns and validates the local source adapter.
 - **One click:** VibeBreak installs only its own hook or plugin entries and
   preserves unrelated user configuration.
@@ -24,6 +30,8 @@ inactivity.
 
 ## Official Contracts
 
+- Codex hooks:
+  <https://developers.openai.com/codex/hooks/>
 - Cursor hooks:
   <https://cursor.com/docs/hooks>
 - Gemini CLI hooks:

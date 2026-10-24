@@ -1,3 +1,4 @@
+import CryptoKit
 import Darwin
 import Foundation
 import VibeBreakCore
@@ -114,7 +115,9 @@ private func append(_ record: BridgeEventRecord) throws {
     let handle = try FileHandle(forWritingTo: fileURL)
     defer { try? handle.close() }
 
-    flock(handle.fileDescriptor, LOCK_EX)
+    guard flock(handle.fileDescriptor, LOCK_EX) == 0 else {
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
     defer { flock(handle.fileDescriptor, LOCK_UN) }
 
     try handle.seekToEnd()
@@ -125,12 +128,16 @@ private func save(_ task: ActiveBridgeTask, source: String) throws {
     let stateURL = activeTaskURL(source: source, threadID: task.threadID)
     try FileManager.default.createDirectory(
         at: stateURL.deletingLastPathComponent(),
-        withIntermediateDirectories: true
+        withIntermediateDirectories: true,
+        attributes: [.posixPermissions: 0o700]
     )
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     let data = try encoder.encode(task)
     try data.write(to: stateURL, options: .atomic)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o600], ofItemAtPath: stateURL.path
+    )
 }
 
 private func loadActiveTask(source: String, threadID: String) throws -> ActiveBridgeTask? {
@@ -159,8 +166,7 @@ private func bridgeEventURL() -> URL {
 }
 
 private func activeTaskURL(source: String, threadID: String) -> URL {
-    applicationSupportURL()
-        .appendingPathComponent("bridge", isDirectory: true)
+    bridgeEventURL().deletingLastPathComponent()
         .appendingPathComponent("state", isDirectory: true)
         .appendingPathComponent("\(safeFilename(source))-\(safeFilename(threadID)).json")
 }
@@ -174,14 +180,7 @@ private func applicationSupportURL() -> URL {
 }
 
 private func safeFilename(_ value: String) -> String {
-    let scalars = value.unicodeScalars.map { scalar -> Character in
-        if CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_" {
-            return Character(scalar)
-        }
-        return "_"
-    }
-    let result = String(scalars)
-    return result.isEmpty ? "unknown" : result
+    SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
 }
 
 private func timestamp() -> String {
