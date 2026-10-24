@@ -5,6 +5,7 @@ build:
 
 test:
 	./Scripts/test.sh
+	sh ./Scripts/test-bridge.sh
 
 app:
 	./Scripts/build-app.sh
